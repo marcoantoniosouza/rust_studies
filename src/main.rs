@@ -1,64 +1,38 @@
-use std::cmp::Ordering;
-use std::io;
-use rand::Rng;
-use std::collections::HashMap;
-use crate::GuessMessages::{EQUAL, GREATER, LESS};
+use calamine::{Reader, Xlsx, open_workbook, DataType};
+use chrono::{Duration, NaiveDate};
 
 fn main() {
-    let secret_number = rand::thread_rng().gen_range(1..=100);
-    log("--- GUESS GAME ---");
+    let path: String = String::from("/home/marcoantonio/github/rust_studies/src/file.xlsx");
+    let mut excel: Xlsx<_> = open_workbook(path)
+        .expect("ERROR OPENING THE FILE");
 
-    loop {
-        let input_u32 = get_input();
-        let guess_result: bool = guess(input_u32, secret_number);
-        if guess_result { break }
+    if let Some(Ok(r)) =
+        excel.worksheet_range(excel
+            .sheet_names()
+            .first()
+            .unwrap()) {
+
+        for row in r.rows() {
+            println!("--------------------");
+            for cell in row {
+                let str1 = get_value_as_string(cell.clone());
+                println!("{str1}");
+            }
+        }
     }
 }
 
-// Didn`t understand yet if it`s better to work with String or &str
-fn log(log_str: &str) {
-    let date_now = chrono::offset::Utc::now().to_string();
-    println!("{date_now} - {log_str}");
+fn get_value_as_string(data: DataType) -> String {
+    data
+        .as_string()
+        .unwrap_or(get_date_as_string(data.to_string().parse::<i64>().unwrap_or(0)))
+}
+fn get_date(data: i64) -> NaiveDate {
+    let start = NaiveDate::from_ymd_opt(1899, 12, 30).expect("DATE");
+    let date = start.checked_add_signed(Duration::days(data));
+    date.unwrap()
 }
 
-fn guess(guess_number: u32, secret: u32) -> bool {
-    let messages = get_messages_dict();
-    log(guess_number.to_string().as_str());
-
-    // Not quite understand the need for the & operator (may have something to do with de #derive)
-    match guess_number.cmp(&secret) {
-        Ordering::Less => { log(messages[&LESS].as_str()); false },
-        Ordering::Greater => { log(messages[&GREATER].as_str()); false },
-        Ordering::Equal => { log(messages[&EQUAL].as_str()); true },
-    }
-}
-
-fn get_input() -> u32 {
-    let mut input_str = String::new();
-    log("Please enter a number: ");
-    io::stdin()
-        .read_line(&mut input_str)
-        .expect("Error on the input");
-
-    let input_u32: u32 = input_str
-        .trim()
-        .parse()
-        .expect("Error parsing input to Number value");
-
-    input_u32
-}
-
-#[derive(Eq, PartialEq, Hash)]
-enum GuessMessages {
-    LESS,
-    GREATER,
-    EQUAL,
-}
-
-fn get_messages_dict() -> HashMap<GuessMessages, String> {
-    HashMap::from([
-        (LESS, String::from("The guess number is lower then the secret")),
-        (GREATER, String::from("The guess number is greater then the secret")),
-        (EQUAL, String::from("Success!!!")),
-    ])
+fn get_date_as_string(data: i64) -> String {
+    get_date(data).to_string()
 }
